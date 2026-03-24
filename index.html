@@ -15,11 +15,10 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,'Apple
 .spinner { width:28px; height:28px; border:2.5px solid var(--border); border-top-color:var(--text); border-radius:50%; animation:spin 0.7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
-.login-screen { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; padding:40px 32px; text-align:center; }
-.login-icon { font-size:56px; margin-bottom:20px; }
-.login-title { font-size:28px; font-weight:800; margin-bottom:10px; letter-spacing:-0.5px; }
-.login-sub { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:48px; }
-.google-btn { display:flex; align-items:center; gap:10px; padding:14px 32px; border-radius:var(--pill); background:var(--text); color:#fff; border:none; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; }
+.login-screen { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; padding:60px 32px 40px; text-align:center; }
+.login-title { font-size:28px; font-weight:800; margin-bottom:10px; letter-spacing:-0.5px; margin-top:0; }
+.login-sub { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:32px; }
+.google-btn { display:flex; align-items:center; gap:8px; padding:8px 20px; border-radius:var(--pill); background:var(--text); color:#fff; border:none; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
 .login-note { font-size:11px; color:var(--text3); margin-top:20px; line-height:1.6; }
 
 .app { display:none; flex-direction:column; min-height:100vh; }
@@ -45,9 +44,6 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,'Apple
 .nav-arrow { font-size:14px; color:var(--text3); cursor:pointer; user-select:none; }
 .mlbl { font-size:15px; font-weight:800; text-decoration:underline; text-underline-offset:3px; }
 
-.frow { display:flex; gap:6px; padding:0 20px; justify-content:center; }
-.ftab { border-radius:var(--pill); border:1px solid var(--border2); background:var(--bg); font-size:11px; font-weight:600; color:var(--text2); cursor:pointer; white-space:nowrap; flex-shrink:0; padding:0 12px; height:20px; display:inline-flex; align-items:center; font-family:inherit; }
-.ftab.on { border-color:var(--text); background:var(--text); color:#fff; }
 
 .cal-wrap { padding:32px 10px 20px; }
 .day-headers { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px; }
@@ -136,7 +132,6 @@ textarea { resize:none; line-height:1.6; }
 </div>
 
 <div class="login-screen" id="login-screen">
-  <div class="login-icon">📚</div>
   <div class="login-title">독서 캘린더</div>
   <div class="login-sub">읽은 책을 달력에 기록하고<br>나만의 독서 히스토리를 만들어보세요.</div>
   <button class="google-btn" onclick="loginWithGoogle()">
@@ -172,11 +167,7 @@ textarea { resize:none; line-height:1.6; }
       <span class="mlbl" id="month-label"></span>
       <span class="nav-arrow" onclick="changeMonth(1)">▶</span>
     </div>
-    <div class="frow">
-      <button class="ftab on" onclick="setFilter('all',this)">전체</button>
-      <button class="ftab" onclick="setFilter('reading',this)">읽고 있는 책</button>
-      <button class="ftab" onclick="setFilter('done',this)">완독한 책</button>
-    </div>
+
     <div class="cal-wrap">
       <div class="day-headers">
         <div class="day-hdr" style="color:#e05050">일</div>
@@ -186,6 +177,11 @@ textarea { resize:none; line-height:1.6; }
         <div class="day-hdr" style="color:#4070d0">토</div>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
+    </div>
+    <div style="text-align:center; padding:20px 0 32px;">
+      <span style="font-size:42px; font-weight:900; color:#888; letter-spacing:-2px;" id="total-count">0</span>
+      <span style="font-size:18px; font-weight:700; color:#888;">권</span>
+      <div style="font-size:12px; color:#bbb; margin-top:4px;">이번 달 읽은 책</div>
     </div>
   </div>
 </div>
@@ -213,7 +209,7 @@ textarea { resize:none; line-height:1.6; }
       <!-- 표지 미리보기 + 기본 정보 -->
       <div class="cover-row-add">
         <div class="cover-preview-add" id="cover-preview">
-          <span>📖</span>
+          <span style="font-size:11px;color:var(--text3);">이미지</span>
         </div>
         <div class="add-fields">
           <div><label class="field-label">제목 *</label><input type="text" id="f-title" placeholder="책 제목" /></div>
@@ -431,6 +427,8 @@ function renderCal(){
     c.innerHTML=`<div class="cal-cell-inner"><div class="day-num">${new Date(y,m,-first+1+i).getDate()}</div></div>`;
     grid.appendChild(c);
   }
+  const monthCount=fb.filter(b=>{ const bd=new Date(b.date); return bd.getFullYear()===y&&bd.getMonth()===m; }).length;
+  const tc=document.getElementById('total-count'); if(tc) tc.textContent=monthCount;
   for(let d=1;d<=last;d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const db2=fb.filter(b=>b.date===ds);
