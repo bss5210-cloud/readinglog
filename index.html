@@ -15,9 +15,9 @@ body { background:var(--bg); color:var(--text); font-family:-apple-system,'Apple
 .spinner { width:28px; height:28px; border:2.5px solid var(--border); border-top-color:var(--text); border-radius:50%; animation:spin 0.7s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
 
-.login-screen { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; padding:60px 32px 40px; text-align:center; }
+.login-screen { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:flex-start; padding:120px 32px 40px; text-align:center; }
 .login-title { font-size:28px; font-weight:800; margin-bottom:10px; letter-spacing:-0.5px; margin-top:0; }
-.login-sub { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:32px; }
+.login-sub { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:40px; }
 .google-btn { display:flex; align-items:center; gap:8px; padding:8px 20px; border-radius:var(--pill); background:var(--text); color:#fff; border:none; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; }
 .login-note { font-size:11px; color:var(--text3); margin-top:20px; line-height:1.6; }
 
@@ -417,7 +417,7 @@ function filteredBooks(){
 function renderCal(){
   const y=currentDate.getFullYear(),m=currentDate.getMonth();
   document.getElementById('month-label').textContent=`${y}년 ${String(m+1).padStart(2,'0')}월`;
-  const fb=filteredBooks();
+  const fb=books;
   const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate();
   const today=new Date();
   const grid=document.getElementById('cal-grid');
@@ -427,7 +427,7 @@ function renderCal(){
     c.innerHTML=`<div class="cal-cell-inner"><div class="day-num">${new Date(y,m,-first+1+i).getDate()}</div></div>`;
     grid.appendChild(c);
   }
-  const monthCount=fb.filter(b=>{ const bd=new Date(b.date); return bd.getFullYear()===y&&bd.getMonth()===m; }).length;
+  const monthCount=books.filter(b=>{ const bd=new Date(b.date); return bd.getFullYear()===y&&bd.getMonth()===m; }).length;
   const tc=document.getElementById('total-count'); if(tc) tc.textContent=monthCount;
   for(let d=1;d<=last;d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
