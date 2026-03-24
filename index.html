@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="독서캘린더">
+<title>독서 캘린더</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+:root { --bg:#fff; --bg2:#f7f7f7; --text:#111; --text2:#666; --text3:#aaa; --border:#e8e8e8; --border2:#d0d0d0; --pill:100px; --r-md:12px; --r-sm:10px; }
+body { background:var(--bg); color:var(--text); font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif; min-height:100vh; max-width:480px; margin:0 auto; overflow-x:hidden; }
+
+.loading-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; }
+.spinner { width:28px; height:28px; border:2.5px solid var(--border); border-top-color:var(--text); border-radius:50%; animation:spin 0.7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.login-screen { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; padding:40px 32px; text-align:center; }
+.login-icon { font-size:56px; margin-bottom:20px; }
+.login-title { font-size:28px; font-weight:800; margin-bottom:10px; letter-spacing:-0.5px; }
+.login-sub { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:48px; }
+.google-btn { display:flex; align-items:center; gap:10px; padding:14px 32px; border-radius:var(--pill); background:var(--text); color:#fff; border:none; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; }
+.login-note { font-size:11px; color:var(--text3); margin-top:20px; line-height:1.6; }
+
+.app { display:none; flex-direction:column; min-height:100vh; }
+.app.visible { display:flex; }
+.screen { display:none; flex-direction:column; min-height:100vh; }
+.screen.active { display:flex; }
+
+.hdr { padding:16px 20px 0; display:flex; align-items:center; justify-content:space-between; }
+.htitle { font-size:22px; font-weight:800; letter-spacing:-0.5px; }
+.hright { display:flex; align-items:center; gap:10px; }
+.user-avatar { width:30px; height:30px; border-radius:50%; overflow:hidden; background:var(--bg2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; color:var(--text2); cursor:pointer; border:1px solid var(--border); flex-shrink:0; }
+.user-avatar img { width:100%; height:100%; object-fit:cover; }
+.add-btn { width:36px; height:36px; border-radius:50%; background:var(--text); color:#fff; border:none; font-size:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-weight:300; line-height:1; }
+
+.user-menu { position:fixed; top:58px; right:16px; z-index:200; background:var(--bg); border:1px solid var(--border); border-radius:var(--r-md); padding:6px; min-width:180px; display:none; box-shadow:0 8px 30px rgba(0,0,0,0.1); }
+.user-menu.open { display:block; }
+.user-menu-info { padding:10px 12px; border-bottom:1px solid var(--border); margin-bottom:4px; }
+.user-menu-name { font-size:14px; font-weight:600; }
+.user-menu-email { font-size:11px; color:var(--text3); margin-top:2px; }
+.menu-item { width:100%; padding:10px 12px; border-radius:var(--r-sm); border:none; background:none; font-size:13px; text-align:left; cursor:pointer; font-family:inherit; color:#e05050; display:block; }
+
+.mnav { display:flex; align-items:center; justify-content:center; gap:20px; padding:14px 20px 10px; }
+.nav-arrow { font-size:14px; color:var(--text3); cursor:pointer; user-select:none; }
+.mlbl { font-size:15px; font-weight:800; text-decoration:underline; text-underline-offset:3px; }
+
+.frow { display:flex; gap:6px; padding:0 20px; justify-content:center; }
+.ftab { border-radius:var(--pill); border:1px solid var(--border2); background:var(--bg); font-size:11px; font-weight:600; color:var(--text2); cursor:pointer; white-space:nowrap; flex-shrink:0; padding:0 12px; height:20px; display:inline-flex; align-items:center; font-family:inherit; }
+.ftab.on { border-color:var(--text); background:var(--text); color:#fff; }
+
+.cal-wrap { padding:32px 10px 20px; }
+.day-headers { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px; }
+.day-hdr { text-align:center; font-size:11px; color:var(--text3); }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.cal-cell { position:relative; width:100%; padding-bottom:140%; display:block; cursor:default; }
+.cal-cell-inner { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; padding-top:4px; overflow:hidden; }
+.cal-cell.has-book { cursor:pointer; }
+.cal-cell.has-book:active { opacity:0.75; }
+.day-num { font-size:11px; font-weight:500; color:var(--text3); line-height:1; z-index:1; position:relative; }
+.cal-cell.other-month .day-num { color:#ddd; }
+.cal-cell.today .day-num { color:var(--text); font-weight:900; }
+.cell-cover { position:absolute; inset:0; overflow:hidden; }
+.cell-cover img { width:100%; height:100%; object-fit:cover; }
+.day-num-over { position:absolute; top:3px; left:0; right:0; text-align:center; font-size:9px; font-weight:700; color:rgba(255,255,255,.95); z-index:2; text-shadow:0 1px 3px rgba(0,0,0,.5); }
+
+/* ── 모달 공통 ── */
+.modal-overlay { display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.45); align-items:flex-end; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--bg); border-radius:24px 24px 0 0; width:100%; max-width:480px; max-height:92vh; overflow-y:auto; padding-bottom:env(safe-area-inset-bottom); }
+.modal-handle { width:40px; height:4px; background:var(--border2); border-radius:2px; margin:14px auto 0; }
+.modal-head { padding:16px 20px 14px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+.modal-title { font-size:17px; font-weight:700; }
+.modal-close { background:var(--bg2); border:none; width:30px; height:30px; border-radius:50%; font-size:15px; color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.modal-body { padding:20px; display:flex; flex-direction:column; gap:16px; }
+.modal-footer { padding:12px 20px 16px; display:flex; gap:10px; border-top:1px solid var(--border); }
+.btn-cancel { flex:1; padding:13px; border-radius:var(--pill); border:1.5px solid var(--border2); background:var(--bg); color:var(--text2); font-size:14px; cursor:pointer; font-family:inherit; font-weight:500; }
+.btn-save-modal { flex:2; padding:13px; border-radius:var(--pill); border:none; background:var(--text); color:#fff; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+.btn-delete { flex:1; padding:13px; border-radius:var(--pill); border:1.5px solid #e05050; background:#fff0f0; color:#e05050; font-size:14px; cursor:pointer; font-family:inherit; font-weight:500; }
+
+/* ── 업로드 버튼 ── */
+.upload-btns { display:flex; gap:10px; }
+.upload-btn-label { flex:1; border:1.5px solid var(--border2); border-radius:var(--r-sm); padding:9px 12px; text-align:center; cursor:pointer; color:var(--text2); font-size:12px; font-weight:500; background:var(--bg2); display:flex; align-items:center; justify-content:center; }
+.upload-btn-label input { display:none; }
+.upload-btn-label:active { background:#eee; }
+
+.cover-row-add { display:flex; gap:14px; align-items:flex-start; }
+.cover-preview-add { width:76px; height:106px; border-radius:8px; overflow:hidden; background:var(--bg2); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:32px; border:1px solid var(--border); cursor:pointer; position:relative; }
+.cover-preview-add img { width:100%; height:100%; object-fit:cover; }
+.cover-retake { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.55); color:#fff; font-size:9px; text-align:center; padding:3px 0; }
+.add-fields { flex:1; display:flex; flex-direction:column; gap:10px; }
+.field-label { font-size:12px; font-weight:600; color:var(--text2); display:block; margin-bottom:4px; }
+input[type=text], input[type=date], textarea { width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:var(--r-sm); background:var(--bg2); color:var(--text); font-size:14px; font-family:inherit; -webkit-appearance:none; }
+input[type=date] { color-scheme:light; accent-color:#888; }
+textarea { resize:none; line-height:1.6; }
+
+/* 별점 */
+.star-row { display:flex; gap:6px; }
+.star { font-size:28px; opacity:0.2; cursor:pointer; user-select:none; transition:opacity 0.1s; }
+.star.on { opacity:1; }
+
+.tags { display:flex; flex-wrap:wrap; gap:6px; }
+.tag { padding:5px 13px; border-radius:var(--pill); border:1px solid var(--border2); background:var(--bg); font-size:12px; font-weight:500; color:var(--text2); cursor:pointer; }
+.tag.on { border-color:var(--text); background:var(--text); color:#fff; }
+
+/* 상세 모달 */
+.det-cover-wrap { display:flex; flex-direction:column; align-items:center; padding:8px 0 16px; }
+.det-cover-img { width:100px; height:140px; border-radius:8px; overflow:hidden; background:var(--bg2); box-shadow:0 4px 16px rgba(0,0,0,0.15); display:flex; align-items:center; justify-content:center; font-size:36px; }
+.det-cover-img img { width:100%; height:100%; object-fit:cover; }
+.det-book-title { font-size:16px; font-weight:700; text-align:center; margin-top:12px; line-height:1.4; }
+.det-book-author { font-size:13px; color:var(--text2); text-align:center; margin-top:4px; }
+.det-book-date { font-size:12px; color:var(--text3); text-align:center; margin-top:3px; }
+.write-box { background:var(--bg2); border-radius:var(--r-md); padding:14px; }
+.write-input { width:100%; background:none; border:none; outline:none; font-size:14px; font-family:inherit; resize:none; min-height:80px; line-height:1.7; color:var(--text); }
+
+/* 크롭 */
+.crop-overlay { display:none; position:fixed; inset:0; z-index:300; background:#000; flex-direction:column; }
+.crop-overlay.open { display:flex; }
+.crop-header { padding:16px 20px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.crop-header-title { font-size:16px; font-weight:700; color:#fff; }
+.crop-cancel { background:none; border:none; color:#aaa; font-size:14px; cursor:pointer; font-family:inherit; }
+.crop-canvas-wrap { flex:1; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.crop-canvas-wrap canvas { display:block; }
+.crop-guide { position:absolute; pointer-events:none; border:2px solid #fff; box-shadow:0 0 0 9999px rgba(0,0,0,0.5); }
+.crop-hint { color:#aaa; font-size:12px; text-align:center; padding:10px 20px; flex-shrink:0; }
+.crop-actions { display:flex; gap:10px; padding:0 20px; margin-bottom:0; }
+.crop-rotate-btn { flex:1; padding:11px; border-radius:var(--pill); border:1.5px solid #555; background:transparent; color:#fff; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+.crop-confirm { flex:2; margin:0; padding:13px; border-radius:var(--pill); border:none; background:#fff; color:#111; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loading-screen">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:#aaa;">로딩 중...</div>
+</div>
+
+<div class="login-screen" id="login-screen">
+  <div class="login-icon">📚</div>
+  <div class="login-title">독서 캘린더</div>
+  <div class="login-sub">읽은 책을 달력에 기록하고<br>나만의 독서 히스토리를 만들어보세요.</div>
+  <button class="google-btn" onclick="loginWithGoogle()">
+    <svg width="18" height="18" viewBox="0 0 48 48">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+    Google로 로그인
+  </button>
+  <div class="login-note">로그인하면 모든 기기에서<br>내 독서 기록을 볼 수 있어요.</div>
+</div>
+
+<div class="app" id="app">
+  <div class="screen active" id="screen-cal">
+    <div class="hdr">
+      <div class="htitle">독서 캘린더</div>
+      <div class="hright">
+        <div class="user-avatar" id="user-avatar" onclick="toggleUserMenu()">?</div>
+        <button class="add-btn" onclick="openAdd()">+</button>
+      </div>
+    </div>
+    <div class="user-menu" id="user-menu">
+      <div class="user-menu-info">
+        <div class="user-menu-name" id="menu-name"></div>
+        <div class="user-menu-email" id="menu-email"></div>
+      </div>
+      <button class="menu-item" onclick="doLogout()">로그아웃</button>
+    </div>
+    <div class="mnav">
+      <span class="nav-arrow" onclick="changeMonth(-1)">◀</span>
+      <span class="mlbl" id="month-label"></span>
+      <span class="nav-arrow" onclick="changeMonth(1)">▶</span>
+    </div>
+    <div class="frow">
+      <button class="ftab on" onclick="setFilter('all',this)">전체</button>
+      <button class="ftab" onclick="setFilter('reading',this)">읽고 있는 책</button>
+      <button class="ftab" onclick="setFilter('done',this)">완독한 책</button>
+    </div>
+    <div class="cal-wrap">
+      <div class="day-headers">
+        <div class="day-hdr" style="color:#e05050">일</div>
+        <div class="day-hdr">월</div><div class="day-hdr">화</div>
+        <div class="day-hdr">수</div><div class="day-hdr">목</div>
+        <div class="day-hdr">금</div>
+        <div class="day-hdr" style="color:#4070d0">토</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 책 추가 모달 ── -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-title">책 기록하기</div>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 사진 버튼 -->
+      <div class="upload-btns" id="upload-btns">
+        <label class="upload-btn-label">
+          <input type="file" accept="image/*" capture="environment" onchange="handleCover(event)">
+          카메라 촬영
+        </label>
+        <label class="upload-btn-label">
+          <input type="file" accept="image/*" onchange="handleCover(event)">
+          갤러리 선택
+        </label>
+      </div>
+      <!-- 표지 미리보기 + 기본 정보 -->
+      <div class="cover-row-add">
+        <div class="cover-preview-add" id="cover-preview">
+          <span>📖</span>
+        </div>
+        <div class="add-fields">
+          <div><label class="field-label">제목 *</label><input type="text" id="f-title" placeholder="책 제목" /></div>
+          <div><label class="field-label">저자</label><input type="text" id="f-author" placeholder="저자 이름" /></div>
+          <div><label class="field-label">날짜</label><input type="date" id="f-date" /></div>
+        </div>
+      </div>
+      <!-- 별점 -->
+      <div>
+        <label class="field-label">별점</label>
+        <div class="star-row" id="add-stars">
+          <span class="star" data-v="1" onclick="setAddRating(1)">★</span>
+          <span class="star" data-v="2" onclick="setAddRating(2)">★</span>
+          <span class="star" data-v="3" onclick="setAddRating(3)">★</span>
+          <span class="star" data-v="4" onclick="setAddRating(4)">★</span>
+          <span class="star" data-v="5" onclick="setAddRating(5)">★</span>
+        </div>
+      </div>
+      <!-- 기록 -->
+      <div>
+        <label class="field-label">기록</label>
+        <div class="write-box">
+          <textarea class="write-input" id="f-memo" placeholder="인상 깊은 구절이나 감상을 자유롭게 적어보세요..." style="min-height:70px;"></textarea>
+        </div>
+      </div>
+      <!-- 장르 -->
+      <div>
+        <label class="field-label">장르</label>
+        <div class="tags" id="genre-tags">
+          <span class="tag" onclick="toggleTag(this)">소설</span>
+          <span class="tag" onclick="toggleTag(this)">자기계발</span>
+          <span class="tag" onclick="toggleTag(this)">경제/경영</span>
+          <span class="tag" onclick="toggleTag(this)">과학</span>
+          <span class="tag" onclick="toggleTag(this)">역사</span>
+          <span class="tag" onclick="toggleTag(this)">에세이</span>
+          <span class="tag" onclick="toggleTag(this)">시/문학</span>
+          <span class="tag" onclick="toggleTag(this)">인문</span>
+          <span class="tag" onclick="toggleTag(this)">만화/웹툰</span>
+          <span class="tag" onclick="toggleTag(this)">여행</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeAddModal()">취소</button>
+      <button class="btn-save-modal" onclick="saveBook()">저장하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 상세 모달 (별점 + 기록만) ── -->
+<div class="modal-overlay" id="det-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-head">
+      <div class="modal-title" id="det-modal-title">책 상세</div>
+      <button class="modal-close" onclick="closeDetModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 표지 + 책정보 -->
+      <div class="det-cover-wrap">
+        <div class="det-cover-img" id="det-cover"></div>
+      </div>
+      <div>
+        <label class="field-label">제목</label>
+        <input type="text" id="det-title-input" placeholder="책 제목" />
+      </div>
+      <div>
+        <label class="field-label">저자</label>
+        <input type="text" id="det-author-input" placeholder="저자 이름" />
+      </div>
+      <div>
+        <label class="field-label">날짜</label>
+        <input type="date" id="det-date-input" />
+      </div>
+      <!-- 별점 -->
+      <div>
+        <label class="field-label">별점</label>
+        <div class="star-row" id="det-stars">
+          <span class="star" data-v="1" onclick="setDetRating(1)">★</span>
+          <span class="star" data-v="2" onclick="setDetRating(2)">★</span>
+          <span class="star" data-v="3" onclick="setDetRating(3)">★</span>
+          <span class="star" data-v="4" onclick="setDetRating(4)">★</span>
+          <span class="star" data-v="5" onclick="setDetRating(5)">★</span>
+        </div>
+      </div>
+      <!-- 기록 -->
+      <div>
+        <label class="field-label">기록</label>
+        <div class="write-box">
+          <textarea class="write-input" id="det-memo" placeholder="인상 깊은 구절이나 감상을 자유롭게 적어보세요..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-delete" onclick="deleteBook()">삭제</button>
+      <button class="btn-save-modal" onclick="saveDetail()">저장하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 크롭 화면 -->
+<div class="crop-overlay" id="crop-overlay">
+  <div class="crop-header">
+    <div class="crop-header-title">표지 영역 선택</div>
+    <button class="crop-cancel" onclick="cancelCrop()">취소</button>
+  </div>
+  <div class="crop-canvas-wrap" id="crop-wrap">
+    <canvas id="crop-canvas"></canvas>
+    <div class="crop-guide" id="crop-guide"></div>
+  </div>
+  <div class="crop-hint">드래그로 위치 · 핀치로 확대/축소</div>
+  <div style="padding:0 20px 8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <span style="font-size:11px;color:#666;">회전</span>
+      <span style="font-size:11px;color:#aaa;" id="rot-val">0°</span>
+    </div>
+    <input type="range" id="rot-slider" min="-180" max="180" value="0" step="0.5"
+      style="width:100%;accent-color:#fff;"
+      oninput="onRotSlider(this.value)">
+    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+      <span style="font-size:10px;color:#555;">-180°</span>
+      <button onclick="document.getElementById('rot-slider').value=0;onRotSlider(0)" style="background:none;border:1px solid #555;border-radius:20px;color:#aaa;font-size:10px;padding:2px 10px;cursor:pointer;">리셋</button>
+      <span style="font-size:10px;color:#555;">+180°</span>
+    </div>
+  </div>
+  <div class="crop-actions" style="margin-bottom:20px;">
+    <button class="crop-confirm" onclick="confirmCrop()">이 부분으로 저장</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, addDoc, getDocs, updateDoc, deleteDoc, query, orderBy }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const fbApp = initializeApp({
+  apiKey: "AIzaSyBjKeU2Dc2c7J5iNknc_GHVgSVZ5b_knHc",
+  authDomain: "readinglog-ba360.firebaseapp.com",
+  projectId: "readinglog-ba360",
+  storageBucket: "readinglog-ba360.firebasestorage.app",
+  messagingSenderId: "1012733944284",
+  appId: "1:1012733944284:web:88ef528264b4974b41ef19"
+});
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+let currentUser=null, books=[], currentDate=new Date(), currentFilter='all';
+let coverData=null, addRating=0, viewingId=null, detRating=0;
+let cropImg=null, cropX=0, cropY=0, cropScale=1, cropDragStart=null, cropLastDist=0, cropRotation=0;
+
+// ── Auth ──
+onAuthStateChanged(auth, async user => {
+  document.getElementById('loading-screen').style.display='none';
+  if (user) {
+    currentUser=user;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').classList.add('visible');
+    const av=document.getElementById('user-avatar');
+    if(user.photoURL) av.innerHTML=`<img src="${user.photoURL}">`;
+    else av.textContent=(user.displayName||'?')[0];
+    document.getElementById('menu-name').textContent=user.displayName||'사용자';
+    document.getElementById('menu-email').textContent=user.email;
+    await loadBooks();
+    renderCal();
+  } else {
+    currentUser=null; books=[];
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('app').classList.remove('visible');
+  }
+});
+
+window.loginWithGoogle=async()=>{
+  try { await signInWithPopup(auth,new GoogleAuthProvider()); }
+  catch(e){ if(e.code!=='auth/popup-closed-by-user') alert('로그인 실패: '+e.message); }
+};
+window.doLogout=async()=>{ document.getElementById('user-menu').classList.remove('open'); await signOut(auth); };
+window.toggleUserMenu=()=>document.getElementById('user-menu').classList.toggle('open');
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#user-menu')&&!e.target.closest('#user-avatar'))
+    document.getElementById('user-menu').classList.remove('open');
+});
+
+async function loadBooks(){
+  books=[];
+  try {
+    const q=query(collection(db,'users',currentUser.uid,'books'),orderBy('date','desc'));
+    const snap=await getDocs(q);
+    snap.forEach(d=>books.push({id:d.id,...d.data()}));
+  } catch(e){}
+}
+
+// ── 캘린더 ──
+window.changeMonth=d=>{ currentDate.setMonth(currentDate.getMonth()+d); renderCal(); };
+window.setFilter=(f,el)=>{
+  currentFilter=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on'); renderCal();
+};
+function filteredBooks(){
+  if(currentFilter==='all') return books;
+  return books.filter(b=>b.status===currentFilter||(!b.status&&currentFilter==='done'));
+}
+function renderCal(){
+  const y=currentDate.getFullYear(),m=currentDate.getMonth();
+  document.getElementById('month-label').textContent=`${y}년 ${String(m+1).padStart(2,'0')}월`;
+  const fb=filteredBooks();
+  const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate();
+  const today=new Date();
+  const grid=document.getElementById('cal-grid');
+  grid.innerHTML='';
+  for(let i=0;i<first;i++){
+    const c=document.createElement('div');c.className='cal-cell other-month';
+    c.innerHTML=`<div class="cal-cell-inner"><div class="day-num">${new Date(y,m,-first+1+i).getDate()}</div></div>`;
+    grid.appendChild(c);
+  }
+  for(let d=1;d<=last;d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const db2=fb.filter(b=>b.date===ds);
+    const isTod=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;
+    const cell=document.createElement('div');
+    cell.className='cal-cell'+(isTod?' today':'')+(db2.length?' has-book':'');
+    if(db2.length){
+      const b=db2[0];
+      cell.innerHTML=`<div class="cal-cell-inner"><div class="cell-cover">${b.cover?`<img src="${b.cover}">`:'<div style="width:100%;height:100%;background:#d4e8da;"></div>'}</div><div class="day-num-over">${d}</div></div>`;
+      cell.onclick=()=>openDetModal(b.id);
+    } else {
+      cell.innerHTML=`<div class="cal-cell-inner"><div class="day-num">${d}</div></div>`;
+    }
+    grid.appendChild(cell);
+  }
+}
+
+// ── 추가 모달 ──
+window.openAdd=()=>{
+  coverData=null; addRating=0;
+  ['f-title','f-author','f-memo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
+  document.querySelectorAll('#genre-tags .tag').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('#add-stars .star').forEach(s=>s.classList.remove('on'));
+  document.getElementById('cover-preview').innerHTML='<span>📖</span>';
+  document.getElementById('upload-btns').style.display='flex';
+  document.getElementById('add-modal').classList.add('open');
+};
+window.closeAddModal=()=>document.getElementById('add-modal').classList.remove('open');
+window.toggleTag=el=>el.classList.toggle('on');
+window.setAddRating=v=>{
+  addRating=v;
+  document.querySelectorAll('#add-stars .star').forEach(s=>s.classList.toggle('on',parseInt(s.dataset.v)<=v));
+};
+
+window.handleCover=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=ev=>openCrop(ev.target.result);
+  reader.readAsDataURL(f);
+};
+
+window.saveBook=async()=>{
+  const title=document.getElementById('f-title').value.trim();
+  const date=document.getElementById('f-date').value;
+  if(!title){ alert('책 제목을 입력해주세요.'); return; }
+  if(!date){ alert('날짜를 선택해주세요.'); return; }
+  const book={
+    title,
+    author:document.getElementById('f-author').value,
+    date, cover:coverData||null,
+    rating:addRating,
+    memo:document.getElementById('f-memo').value,
+    genres:[...document.querySelectorAll('#genre-tags .tag.on')].map(t=>t.textContent),
+    createdAt:new Date().toISOString()
+  };
+  try {
+    const ref=await addDoc(collection(db,'users',currentUser.uid,'books'),book);
+    books.unshift({id:ref.id,...book});
+    closeAddModal(); renderCal();
+  } catch(e){ alert('저장 실패: '+e.message); }
+};
+
+// ── 상세 모달 ──
+window.openDetModal=id=>{
+  const b=books.find(x=>x.id===id); if(!b) return;
+  viewingId=id; detRating=b.rating||0;
+  document.getElementById('det-modal-title').textContent=b.title;
+  document.getElementById('det-cover').innerHTML=b.cover?`<img src="${b.cover}">`:'📖';
+  document.getElementById('det-title-input').value=b.title||'';
+  document.getElementById('det-author-input').value=b.author||'';
+  document.getElementById('det-date-input').value=b.date||'';
+  document.getElementById('det-memo').value=b.memo||'';
+  document.querySelectorAll('#det-stars .star').forEach(s=>s.classList.toggle('on',parseInt(s.dataset.v)<=detRating));
+  document.getElementById('det-modal').classList.add('open');
+};
+window.closeDetModal=()=>document.getElementById('det-modal').classList.remove('open');
+window.setDetRating=v=>{
+  detRating=v;
+  document.querySelectorAll('#det-stars .star').forEach(s=>s.classList.toggle('on',parseInt(s.dataset.v)<=v));
+};
+window.saveDetail=async()=>{
+  if(!viewingId) return;
+  try {
+    const updates={
+      title:document.getElementById('det-title-input').value.trim()||books.find(b=>b.id===viewingId)?.title,
+      author:document.getElementById('det-author-input').value,
+      date:document.getElementById('det-date-input').value,
+      rating:detRating,
+      memo:document.getElementById('det-memo').value
+    };
+    await updateDoc(doc(db,'users',currentUser.uid,'books',viewingId),updates);
+    books=books.map(b=>b.id===viewingId?{...b,...updates}:b);
+    closeDetModal(); renderCal();
+  } catch(e){ alert('저장 실패: '+e.message); }
+};
+window.deleteBook=async()=>{
+  if(!confirm('이 책 기록을 삭제할까요?')) return;
+  try {
+    await deleteDoc(doc(db,'users',currentUser.uid,'books',viewingId));
+    books=books.filter(b=>b.id!==viewingId);
+    closeDetModal(); renderCal();
+  } catch(e){ alert('삭제 실패: '+e.message); }
+};
+
+// ── 크롭 ──
+function openCrop(src){
+  cropImg=new Image();
+  cropImg.onload=()=>{ document.getElementById('crop-overlay').classList.add('open'); initCrop(); };
+  cropImg.src=src;
+}
+function initCrop(){
+  const canvas=document.getElementById('crop-canvas');
+  const wrap=document.getElementById('crop-wrap');
+  const ww=wrap.clientWidth, wh=wrap.clientHeight;
+  canvas.width=ww; canvas.height=wh;
+  const scaleX=ww/cropImg.width, scaleY=wh/cropImg.height;
+  cropScale=Math.max(scaleX,scaleY)*0.95; cropRotation=0;
+  const sl=document.getElementById('rot-slider');
+  if(sl){ sl.value=0; }
+  const rv=document.getElementById('rot-val');
+  if(rv){ rv.textContent='0°'; }
+  cropX=(ww-cropImg.width*cropScale)/2;
+  cropY=(wh-cropImg.height*cropScale)/2;
+  const guide=document.getElementById('crop-guide');
+  const gw=Math.min(ww*0.55,180), gh=gw*1.4;
+  const gx=(ww-gw)/2, gy=(wh-gh)/2;
+  guide.style.left=gx+'px'; guide.style.top=gy+'px';
+  guide.style.width=gw+'px'; guide.style.height=gh+'px';
+  drawCrop(); bindCropEvents();
+}
+function drawCrop(){
+  const canvas=document.getElementById('crop-canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  const cx=cropX+cropImg.width*cropScale/2, cy=cropY+cropImg.height*cropScale/2;
+  ctx.translate(cx,cy);
+  ctx.rotate(cropRotation*Math.PI/180);
+  ctx.drawImage(cropImg,-cropImg.width*cropScale/2,-cropImg.height*cropScale/2,cropImg.width*cropScale,cropImg.height*cropScale);
+  ctx.restore();
+}
+function bindCropEvents(){
+  const canvas=document.getElementById('crop-canvas');
+  canvas.ontouchstart=e=>{
+    e.preventDefault();
+    if(e.touches.length===1) cropDragStart={x:e.touches[0].clientX-cropX,y:e.touches[0].clientY-cropY};
+    else if(e.touches.length===2) cropLastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  };
+  canvas.ontouchmove=e=>{
+    e.preventDefault();
+    if(e.touches.length===1&&cropDragStart){
+      cropX=e.touches[0].clientX-cropDragStart.x;
+      cropY=e.touches[0].clientY-cropDragStart.y;
+      drawCrop();
+    } else if(e.touches.length===2){
+      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      cropScale=Math.min(Math.max(cropScale*(dist/cropLastDist),0.05),8);
+      cropLastDist=dist; drawCrop();
+    }
+  };
+  canvas.ontouchend=()=>{ cropDragStart=null; };
+  let md=false;
+  canvas.onmousedown=e=>{ md=true; cropDragStart={x:e.clientX-cropX,y:e.clientY-cropY}; };
+  canvas.onmousemove=e=>{ if(md&&cropDragStart){ cropX=e.clientX-cropDragStart.x; cropY=e.clientY-cropDragStart.y; drawCrop(); } };
+  canvas.onmouseup=()=>{ md=false; cropDragStart=null; };
+  canvas.onwheel=e=>{ cropScale=Math.min(Math.max(cropScale*(e.deltaY<0?1.1:0.9),0.05),8); drawCrop(); };
+}
+window.onRotSlider=val=>{
+  cropRotation=parseFloat(val);
+  document.getElementById('rot-val').textContent=Math.round(cropRotation)+'°';
+  drawCrop();
+};
+window.confirmCrop=()=>{
+  const guide=document.getElementById('crop-guide');
+  const canvas=document.getElementById('crop-canvas');
+  const gx=parseFloat(guide.style.left),gy=parseFloat(guide.style.top);
+  const gw=parseFloat(guide.style.width),gh=parseFloat(guide.style.height);
+  const out=document.createElement('canvas');
+  out.width=gw*2; out.height=gh*2;
+  out.getContext('2d').drawImage(canvas,gx,gy,gw,gh,0,0,out.width,out.height);
+  cropRotation=0;
+  coverData=out.toDataURL('image/jpeg',0.85);
+  const prev=document.getElementById('cover-preview');
+  prev.innerHTML=`<img src="${coverData}"><div class="cover-retake">다시 선택</div>`;
+  document.getElementById('upload-btns').style.display='none';
+  document.getElementById('crop-overlay').classList.remove('open');
+};
+window.cancelCrop=()=>{ document.getElementById('crop-overlay').classList.remove('open'); };
+</script>
+</body>
+</html>
