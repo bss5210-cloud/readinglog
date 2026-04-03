@@ -4,7 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="독서캘린더">
+<meta name="theme-color" content="#111111"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
 <title>독서 캘린더</title>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
@@ -619,6 +623,15 @@ window.confirmCrop=()=>{
   document.getElementById('crop-overlay').classList.remove('open');
 };
 window.cancelCrop=()=>{ document.getElementById('crop-overlay').classList.remove('open'); };
+
+// PWA 서비스워커 등록
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('✅ SW 등록:', reg.scope))
+      .catch(err => console.log('❌ SW 실패:', err));
+  });
+}
 </script>
 </body>
 </html>
